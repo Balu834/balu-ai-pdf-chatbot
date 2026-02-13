@@ -1,6 +1,8 @@
 streamlit
+langchain
+langchain-community
+langchain-core
 pypdf
 faiss-cpu
 sentence-transformers
-langchain
-langchain-community
+huggingface-hub

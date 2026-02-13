@@ -1,47 +1,58 @@
 import streamlit as st
-import os
-from dotenv import load_dotenv
 
-load_dotenv()
-
-# ---------------- PAGE CONFIG ----------------
+# -------------------------
+# PAGE CONFIG
+# -------------------------
 st.set_page_config(page_title="Balu AI Labs", layout="centered")
 
-# ---------------- SESSION ----------------
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
+# -------------------------
+# SESSION STATE INIT
+# -------------------------
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
 
-# ---------------- LOGIN FUNCTION ----------------
+# -------------------------
+# LOGIN FUNCTION
+# -------------------------
 def login():
+    USERNAME = "balu"
+    PASSWORD = "balu123"
+
+    if (
+        st.session_state.username == USERNAME
+        and st.session_state.password == PASSWORD
+    ):
+        st.session_state.authenticated = True
+    else:
+        st.error("Invalid username or password")
+
+# -------------------------
+# LOGOUT FUNCTION
+# -------------------------
+def logout():
+    st.session_state.authenticated = False
+
+
+# -------------------------
+# LOGIN PAGE
+# -------------------------
+if not st.session_state.authenticated:
     st.title("🔐 Balu AI Labs Login")
 
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
+    st.text_input("Username", key="username")
+    st.text_input("Password", type="password", key="password")
 
-    if st.button("Login"):
-        if username == "balu" and password == "1234":
-            st.session_state.logged_in = True
-            st.success("Login successful!")
-            st.rerun()
-        else:
-            st.error("Invalid credentials")
+    st.button("Login", on_click=login)
 
-# ---------------- MAIN APP ----------------
-def main_app():
-    st.title("📄 Balu AI Labs - AI PDF Chatbot")
-
-    if st.button("Logout"):
-        st.session_state.logged_in = False
-        st.rerun()
-
-    uploaded_file = st.file_uploader("Upload your PDF", type="pdf")
-
-    if uploaded_file:
-        st.success("PDF uploaded successfully!")
-        st.write("Chatbot logic will go here.")
-
-# ---------------- ROUTING ----------------
-if st.session_state.logged_in:
-    main_app()
+# -------------------------
+# MAIN APP (Protected Area)
+# -------------------------
 else:
-    login()
+    st.title("🚀 Welcome to Balu AI Labs")
+
+    st.success("Login successful!")
+
+    st.write("This area is protected.")
+    st.write("Your AI apps will appear here.")
+
+    st.button("Logout", on_click=logout)

@@ -8,4 +8,6 @@ torch
 pypdf
 streamlit
 python-dotenv
+huggingface-hub
+
 

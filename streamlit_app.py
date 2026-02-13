@@ -1,8 +1,5 @@
 import streamlit as st
-from langchain.document_loaders import PyPDFLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.embeddings import HuggingFaceEmbeddings
-from langchain.vectorstores import FAISS
+from pypdf import PdfReader
 
 st.set_page_config(page_title="Balu AI Labs", layout="wide")
 
@@ -26,41 +23,29 @@ def dashboard():
     st.success("Login successful!")
     st.write("This is your AI platform dashboard.")
 
-# ---------------- PDF CHATBOT ----------------
-def pdf_chatbot():
-    st.title("📄 AI PDF Chatbot (Free Version)")
+# ---------------- PDF TOOL ----------------
+def pdf_tool():
+    st.title("📄 AI PDF Tool (Free Version)")
 
     uploaded_file = st.file_uploader("Upload your PDF", type="pdf")
 
     if uploaded_file:
-        with open("temp.pdf", "wb") as f:
-            f.write(uploaded_file.read())
+        reader = PdfReader(uploaded_file)
+        full_text = ""
 
-        loader = PyPDFLoader("temp.pdf")
-        documents = loader.load()
+        for page in reader.pages:
+            full_text += page.extract_text()
 
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=500,
-            chunk_overlap=50
-        )
+        st.success("PDF loaded successfully!")
 
-        texts = text_splitter.split_documents(documents)
-
-        embeddings = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2"
-        )
-
-        vectorstore = FAISS.from_documents(texts, embeddings)
-
-        query = st.text_input("Ask something about your PDF:")
+        query = st.text_input("Search inside your PDF:")
 
         if query:
-            docs = vectorstore.similarity_search(query, k=3)
-
-            st.write("### 📄 Relevant Content from PDF:")
-            for doc in docs:
-                st.write(doc.page_content)
-                st.write("---")
+            if query.lower() in full_text.lower():
+                st.write("### 🔎 Found Results:")
+                st.write(full_text)
+            else:
+                st.warning("No match found.")
 
 # ---------------- MAIN ----------------
 def main():
@@ -73,14 +58,14 @@ def main():
         st.sidebar.title("Balu AI Labs")
         menu = st.sidebar.radio(
             "Navigation",
-            ["Dashboard", "PDF Chatbot", "Logout"]
+            ["Dashboard", "PDF Tool", "Logout"]
         )
 
         if menu == "Dashboard":
             dashboard()
 
-        elif menu == "PDF Chatbot":
-            pdf_chatbot()
+        elif menu == "PDF Tool":
+            pdf_tool()
 
         elif menu == "Logout":
             st.session_state.logged_in = False

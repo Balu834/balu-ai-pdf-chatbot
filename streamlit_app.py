@@ -3,9 +3,6 @@ from langchain.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.vectorstores import FAISS
-from langchain.chains import RetrievalQA
-from langchain.llms import HuggingFacePipeline
-from transformers import pipeline
 
 st.set_page_config(page_title="Balu AI Labs", layout="wide")
 
@@ -55,25 +52,15 @@ def pdf_chatbot():
 
         vectorstore = FAISS.from_documents(texts, embeddings)
 
-        pipe = pipeline(
-            "text-generation",
-            model="distilgpt2",
-            max_length=200
-        )
-
-        llm = HuggingFacePipeline(pipeline=pipe)
-
-        qa = RetrievalQA.from_chain_type(
-            llm=llm,
-            retriever=vectorstore.as_retriever()
-        )
-
         query = st.text_input("Ask something about your PDF:")
 
         if query:
-            result = qa.run(query)
-            st.write("### 🤖 Answer")
-            st.write(result)
+            docs = vectorstore.similarity_search(query, k=3)
+
+            st.write("### 📄 Relevant Content from PDF:")
+            for doc in docs:
+                st.write(doc.page_content)
+                st.write("---")
 
 # ---------------- MAIN ----------------
 def main():

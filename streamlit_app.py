@@ -1,56 +1,53 @@
-import streamlit as st
+elif menu == "PDF Chatbot":
 
-# --------------------
-# SESSION STATE LOGIN
-# --------------------
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
+    st.header("📄 AI PDF Chatbot (Free Version)")
 
-# --------------------
-# LOGIN PAGE
-# --------------------
-def login():
-    st.title("🔐 Balu AI Labs Login")
+    uploaded_file = st.file_uploader("Upload your PDF", type="pdf")
 
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
+    if uploaded_file is not None:
 
-    if st.button("Login"):
-        if username == "admin" and password == "admin123":
-            st.session_state.logged_in = True
-            st.success("Login successful!")
-            st.rerun()
-        else:
-            st.error("Invalid credentials")
+        with open("temp.pdf", "wb") as f:
+            f.write(uploaded_file.getbuffer())
 
-# --------------------
-# DASHBOARD PAGE
-# --------------------
-def dashboard():
-    st.title("🚀 Welcome to Balu AI Labs")
-    st.success("Login successful!")
-    st.write("This is your AI platform dashboard.")
+        from langchain_community.document_loaders import PyPDFLoader
+        from langchain.text_splitter import RecursiveCharacterTextSplitter
+        from langchain_community.embeddings import HuggingFaceEmbeddings
+        from langchain_community.vectorstores import FAISS
+        from langchain.chains import RetrievalQA
+        from langchain_community.llms import HuggingFaceHub
 
-# --------------------
-# PDF CHATBOT PAGE
-# --------------------
-def pdf_chatbot():
-    st.title("📄 AI PDF Chatbot")
-    st.info("PDF Chatbot coming next step...")
+        loader = PyPDFLoader("temp.pdf")
+        docs = loader.load()
 
-# --------------------
-# MAIN APP
-# --------------------
-if not st.session_state.logged_in:
-    login()
-else:
-    st.sidebar.title("Balu AI Labs")
-    page = st.sidebar.radio("Navigation", ["Dashboard", "PDF Chatbot", "Logout"])
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=500,
+            chunk_overlap=50
+        )
+        chunks = splitter.split_documents(docs)
 
-    if page == "Dashboard":
-        dashboard()
-    elif page == "PDF Chatbot":
-        pdf_chatbot()
-    elif page == "Logout":
-        st.session_state.logged_in = False
-        st.rerun()
+        embeddings = HuggingFaceEmbeddings(
+            model_name="sentence-transformers/all-MiniLM-L6-v2"
+        )
+
+        vectorstore = FAISS.from_documents(chunks, embeddings)
+
+        # FREE HuggingFace model
+        llm = HuggingFaceHub(
+            repo_id="google/flan-t5-base",
+            model_kwargs={"temperature":0.5, "max_length":512}
+        )
+
+        qa = RetrievalQA.from_chain_type(
+            llm=llm,
+            retriever=vectorstore.as_retriever()
+        )
+
+        question = st.text_input("Ask something about the document:")
+
+        if question:
+            answer = qa.run(question)
+            st.markdown("### 🤖 Answer")
+            st.write(answer)
+
+    else:
+        st.info("Please upload a PDF file to start chatting.")

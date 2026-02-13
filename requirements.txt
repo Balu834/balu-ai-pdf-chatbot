@@ -6,3 +6,6 @@ sentence-transformers
 transformers
 torch
 pypdf
+streamlit
+python-dotenv
+

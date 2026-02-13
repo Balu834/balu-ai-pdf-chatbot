@@ -1,13 +1,8 @@
 streamlit
-langchain==0.1.16
-langchain-community==0.0.34
-faiss-cpu
-sentence-transformers
+langchain
+langchain-community
 transformers
 torch
+sentence-transformers
+faiss-cpu
 pypdf
-streamlit
-python-dotenv
-huggingface-hub
-
-

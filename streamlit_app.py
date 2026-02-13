@@ -57,6 +57,7 @@ def create_qa(pdf_path):
     qa = RetrievalQA.from_chain_type(
         llm=llm,
         retriever=retr
+    )
 import streamlit as st
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -161,3 +162,4 @@ if uploaded_file:
             file_name="summary.txt",
             mime="text/plain"
         )
+

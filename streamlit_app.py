@@ -1,4 +1,5 @@
 import streamlit as st
+import tempfile
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
@@ -7,159 +8,73 @@ from langchain.chains import RetrievalQA
 from langchain_community.llms import HuggingFacePipeline
 from transformers import pipeline
 
-# ---------------- PAGE CONFIG ----------------
-st.set_page_config(
-    page_title="Balu AI PDF Assistant",
-    page_icon="🤖",
-    layout="centered"
-)
+# -----------------------------
+# Page Config
+# -----------------------------
+st.set_page_config(page_title="AI PDF Chatbot (FREE)", layout="centered")
+st.title("📄 AI PDF Chatbot (FREE Version)")
 
-# ---------------- SIDEBAR ----------------
-st.sidebar.title("About This App")
-st.sidebar.write("""
-This AI tool allows you to:
-- Upload any PDF
-- Ask questions
-- Get instant answers
-- Generate summaries
-
-Built by Balu 🚀
-""")
-
-# ---------------- FILE UPLOADER ----------------
+# -----------------------------
+# File Upload (ONLY ONE)
+# -----------------------------
 uploaded_file = st.file_uploader("Upload your PDF", type="pdf")
 
-# ---------------- FUNCTION TO CREATE QA ----------------
-def create_qa(pdf_path):
+# -----------------------------
+# Load & Build RAG
+# -----------------------------
+@st.cache_resource
+def build_rag(pdf_path):
+
     loader = PyPDFLoader(pdf_path)
-    documents = loader.load()
+    docs = loader.load()
 
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,
-        chunk_overlap=200
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=500,
+        chunk_overlap=50
     )
-    texts = text_splitter.split_documents(documents)
+    chunks = splitter.split_documents(docs)
 
-    embeddings = HuggingFaceEmbeddings()
+    embeddings = HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-MiniLM-L6-v2"
+    )
 
-    vectorstore = FAISS.from_documents(texts, embeddings)
+    vectorstore = FAISS.from_documents(chunks, embeddings)
 
-    retriever = vectorstore.as_retriever()
-
-    hf_pipeline = pipeline(
+    # Free HuggingFace text generation model
+    generator = pipeline(
         "text-generation",
         model="google/flan-t5-base",
         max_length=512
     )
 
-    llm = HuggingFacePipeline(pipeline=hf_pipeline)
+    llm = HuggingFacePipeline(pipeline=generator)
 
     qa = RetrievalQA.from_chain_type(
         llm=llm,
-        retriever=retr
-    )
-import streamlit as st
-from langchain_community.document_loaders import PyPDFLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import FAISS
-from langchain.chains import RetrievalQA
-from langchain_community.llms import HuggingFacePipeline
-from transformers import pipeline
-
-# ---------------- PAGE CONFIG ----------------
-st.set_page_config(
-    page_title="Balu AI PDF Assistant",
-    page_icon="🤖",
-    layout="centered"
-)
-
-# ---------------- SIDEBAR ----------------
-st.sidebar.title("About This App")
-st.sidebar.write("""
-This AI tool allows you to:
-- Upload any PDF
-- Ask questions
-- Get instant answers
-- Generate summaries
-
-Built by Balu 🚀
-""")
-
-# ---------------- FILE UPLOADER ----------------
-uploaded_file = st.file_uploader("Upload your PDF", type="pdf")
-
-# ---------------- FUNCTION TO CREATE QA ----------------
-def create_qa(pdf_path):
-    loader = PyPDFLoader(pdf_path)
-    documents = loader.load()
-
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,
-        chunk_overlap=200
-    )
-    texts = text_splitter.split_documents(documents)
-
-    embeddings = HuggingFaceEmbeddings()
-
-    vectorstore = FAISS.from_documents(texts, embeddings)
-
-    retriever = vectorstore.as_retriever()
-
-    hf_pipeline = pipeline(
-        "text-generation",
-        model="google/flan-t5-base",
-        max_length=512
-    )
-
-    llm = HuggingFacePipeline(pipeline=hf_pipeline)
-
-    qa = RetrievalQA.from_chain_type(
-        llm=llm,
-        retriever=retriever
+        retriever=vectorstore.as_retriever()
     )
 
     return qa
 
-# ---------------- CLEAR CHAT ----------------
-if st.button("Clear Chat"):
-    st.session_state.messages = []
+# -----------------------------
+# Main App Logic
+# -----------------------------
+if uploaded_file is not None:
 
-# ---------------- MAIN LOGIC ----------------
-if uploaded_file:
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
+        tmp_file.write(uploaded_file.read())
+        tmp_path = tmp_file.name
 
-    with st.spinner("Processing your document... Please wait..."):
-        with open("temp.pdf", "wb") as f:
-            f.write(uploaded_file.read())
+    qa = build_rag(tmp_path)
 
-        qa = create_qa("temp.pdf")
+    question = st.text_input("Ask something about the document:")
 
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
+    if question:
+        with st.spinner("Thinking..."):
+            answer = qa.run(question)
 
-    user_input = st.chat_input("Ask something about the document...")
+        st.markdown("### 🤖 Answer")
+        st.write(answer)
 
-    if user_input:
-        response = qa.run(user_input)
-
-        st.session_state.messages.append(("user", user_input))
-        st.session_state.messages.append(("bot", response))
-
-    for role, message in st.session_state.messages:
-        if role == "user":
-            with st.chat_message("user"):
-                st.write(message)
-        else:
-            with st.chat_message("assistant"):
-                st.write(message)
-
-    # ---------------- DOWNLOAD SUMMARY ----------------
-    if st.button("Download Summary"):
-        summary = qa.run("Give a short summary of this document.")
-        st.download_button(
-            label="Download Summary",
-            data=summary,
-            file_name="summary.txt",
-            mime="text/plain"
-        )
-
+else:
+    st.info("Please upload a PDF file to start chatting.")

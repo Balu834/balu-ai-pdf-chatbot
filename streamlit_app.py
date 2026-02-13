@@ -1,103 +1,56 @@
 import streamlit as st
-import tempfile
 
-from langchain_community.document_loaders import PyPDFLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import FAISS
-from langchain.chains import RetrievalQA
-from transformers import pipeline
-from langchain.llms import HuggingFacePipeline
+# --------------------
+# SESSION STATE LOGIN
+# --------------------
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
 
-# -------------------------
-# PAGE CONFIG
-# -------------------------
-st.set_page_config(page_title="Balu AI Labs", layout="centered")
-
-# -------------------------
-# SESSION STATE INIT
-# -------------------------
-if "authenticated" not in st.session_state:
-    st.session_state.authenticated = False
-
-# -------------------------
-# LOGIN FUNCTION
-# -------------------------
-def login():
-    if (
-        st.session_state.username == "balu"
-        and st.session_state.password == "balu123"
-    ):
-        st.session_state.authenticated = True
-    else:
-        st.error("Invalid username or password")
-
-# -------------------------
-# LOGOUT FUNCTION
-# -------------------------
-def logout():
-    st.session_state.authenticated = False
-
-
-# =========================
+# --------------------
 # LOGIN PAGE
-# =========================
-if not st.session_state.authenticated:
-
+# --------------------
+def login():
     st.title("🔐 Balu AI Labs Login")
 
-    st.text_input("Username", key="username")
-    st.text_input("Password", type="password", key="password")
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
 
-    st.button("Login", on_click=login)
+    if st.button("Login"):
+        if username == "admin" and password == "admin123":
+            st.session_state.logged_in = True
+            st.success("Login successful!")
+            st.rerun()
+        else:
+            st.error("Invalid credentials")
 
-# =========================
-# PROTECTED APP
-# =========================
-else:
-
-    st.title("🚀 Balu AI Labs")
+# --------------------
+# DASHBOARD PAGE
+# --------------------
+def dashboard():
+    st.title("🚀 Welcome to Balu AI Labs")
     st.success("Login successful!")
+    st.write("This is your AI platform dashboard.")
 
-    st.markdown("## 📄 AI PDF Chatbot")
+# --------------------
+# PDF CHATBOT PAGE
+# --------------------
+def pdf_chatbot():
+    st.title("📄 AI PDF Chatbot")
+    st.info("PDF Chatbot coming next step...")
 
-    uploaded_file = st.file_uploader("Upload your PDF", type="pdf")
+# --------------------
+# MAIN APP
+# --------------------
+if not st.session_state.logged_in:
+    login()
+else:
+    st.sidebar.title("Balu AI Labs")
+    page = st.sidebar.radio("Navigation", ["Dashboard", "PDF Chatbot", "Logout"])
 
-    if uploaded_file is not None:
-
-        with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
-            tmp_file.write(uploaded_file.read())
-            temp_path = tmp_file.name
-
-        loader = PyPDFLoader(temp_path)
-        docs = loader.load()
-
-        splitter = RecursiveCharacterTextSplitter(
-            chunk_size=500,
-            chunk_overlap=50
-        )
-        chunks = splitter.split_documents(docs)
-
-        embeddings = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2"
-        )
-
-        vectorstore = FAISS.from_documents(chunks, embeddings)
-
-        pipe = pipeline("text-generation", model="google/flan-t5-base")
-        llm = HuggingFacePipeline(pipeline=pipe)
-
-        qa = RetrievalQA.from_chain_type(
-            llm=llm,
-            retriever=vectorstore.as_retriever()
-        )
-
-        question = st.text_input("Ask something about your PDF")
-
-        if question:
-            answer = qa.run(question)
-            st.write("### 🤖 Answer")
-            st.write(answer)
-
-    st.markdown("---")
-    st.button("Logout", on_click=logout)
+    if page == "Dashboard":
+        dashboard()
+    elif page == "PDF Chatbot":
+        pdf_chatbot()
+    elif page == "Logout":
+        st.session_state.logged_in = False
+        st.rerun()

@@ -1,75 +1,59 @@
 import streamlit as st
 from pypdf import PdfReader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.vectorstores import FAISS
+from langchain.chains import RetrievalQA
+from langchain_community.llms import HuggingFaceHub
+import os
 
-st.set_page_config(page_title="Balu AI Labs", layout="wide")
+st.set_page_config(page_title="Balu AI Labs - PDF Chatbot", layout="wide")
 
-# ---------------- LOGIN ----------------
-def login():
-    st.title("🔐 Balu AI Labs Login")
+st.title("📄 AI PDF Chatbot (FREE AI Version)")
 
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
+uploaded_file = st.file_uploader("Upload your PDF", type="pdf")
 
-    if st.button("Login"):
-        if username == "balu" and password == "balu123":
-            st.session_state.logged_in = True
-            st.rerun()
-        else:
-            st.error("Invalid credentials")
+if uploaded_file:
 
-# ---------------- DASHBOARD ----------------
-def dashboard():
-    st.title("🚀 Welcome to Balu AI Labs")
-    st.success("Login successful!")
-    st.write("This is your AI platform dashboard.")
+    st.success("PDF loaded successfully!")
 
-# ---------------- PDF TOOL ----------------
-def pdf_tool():
-    st.title("📄 AI PDF Tool (Free Version)")
+    # Read PDF
+    pdf_reader = PdfReader(uploaded_file)
+    text = ""
 
-    uploaded_file = st.file_uploader("Upload your PDF", type="pdf")
+    for page in pdf_reader.pages:
+        text += page.extract_text()
 
-    if uploaded_file:
-        reader = PdfReader(uploaded_file)
-        full_text = ""
+    # Split text
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=500,
+        chunk_overlap=50
+    )
+    chunks = splitter.split_text(text)
 
-        for page in reader.pages:
-            full_text += page.extract_text()
+    # Embeddings
+    embeddings = HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-MiniLM-L6-v2"
+    )
 
-        st.success("PDF loaded successfully!")
+    vectorstore = FAISS.from_texts(chunks, embeddings)
 
-        query = st.text_input("Search inside your PDF:")
+    retriever = vectorstore.as_retriever()
 
-        if query:
-            if query.lower() in full_text.lower():
-                st.write("### 🔎 Found Results:")
-                st.write(full_text)
-            else:
-                st.warning("No match found.")
+    # FREE HuggingFace LLM
+    llm = HuggingFaceHub(
+        repo_id="google/flan-t5-base",
+        model_kwargs={"temperature":0, "max_length":512}
+    )
 
-# ---------------- MAIN ----------------
-def main():
-    if "logged_in" not in st.session_state:
-        st.session_state.logged_in = False
+    qa = RetrievalQA.from_chain_type(
+        llm=llm,
+        retriever=retriever
+    )
 
-    if not st.session_state.logged_in:
-        login()
-    else:
-        st.sidebar.title("Balu AI Labs")
-        menu = st.sidebar.radio(
-            "Navigation",
-            ["Dashboard", "PDF Tool", "Logout"]
-        )
+    question = st.text_input("Ask a question about your PDF")
 
-        if menu == "Dashboard":
-            dashboard()
-
-        elif menu == "PDF Tool":
-            pdf_tool()
-
-        elif menu == "Logout":
-            st.session_state.logged_in = False
-            st.rerun()
-
-if __name__ == "__main__":
-    main()
+    if question:
+        answer = qa.run(question)
+        st.markdown("### 🤖 Answer")
+        st.write(answer)

@@ -27,6 +27,11 @@ with st.sidebar:
 
     dark_mode = st.toggle("🌙 Dark Mode")
 
+    mode = st.radio(
+        "🔍 Mode",
+        ["Smart Search", "Full LLM (OpenAI)"]
+    )
+
     st.markdown("---")
 
     if st.button("🗑 Clear Chat"):
@@ -38,51 +43,74 @@ with st.sidebar:
 # DARK MODE STYLING
 # ---------------------------
 if dark_mode:
-    bg_color = "#1e1e1e"
+    background_color = "#121212"
     text_color = "white"
-    ai_color = "#2d2d2d"
+    ai_color = "#1f1f1f"
     user_color = "#2563eb"
 else:
-    bg_color = "white"
+    background_color = "white"
     text_color = "black"
     ai_color = "#f3f4f6"
     user_color = "#dbeafe"
 
 st.markdown(f"""
 <style>
-.chat-container {{
-    max-width: 800px;
-    margin: auto;
+body {{
+    background-color: {background_color};
 }}
+
+.chat-container {{
+    max-width: 850px;
+    margin: auto;
+    padding-bottom: 120px;
+}}
+
 .user-bubble {{
     background-color: {user_color};
-    color: {text_color};
-    padding: 12px 18px;
-    border-radius: 18px;
+    color: white;
+    padding: 14px 18px;
+    border-radius: 20px;
     margin-bottom: 10px;
-    width: fit-content;
     max-width: 70%;
     margin-left: auto;
+    animation: fadeIn 0.3s ease-in;
 }}
+
 .ai-bubble {{
     background-color: {ai_color};
     color: {text_color};
-    padding: 12px 18px;
-    border-radius: 18px;
+    padding: 14px 18px;
+    border-radius: 20px;
     margin-bottom: 10px;
-    width: fit-content;
     max-width: 70%;
+    animation: fadeIn 0.3s ease-in;
 }}
+
+@keyframes fadeIn {{
+    from {{ opacity: 0; transform: translateY(5px); }}
+    to {{ opacity: 1; transform: translateY(0); }}
+}}
+
 .header-title {{
     text-align:center;
     font-size:36px;
     font-weight:700;
 }}
+
 .footer {{
     text-align:center;
-    margin-top:50px;
+    margin-top:40px;
     font-size:14px;
     color:gray;
+}}
+
+.stChatInputContainer {{
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background-color: {background_color};
+    padding: 10px 0;
 }}
 </style>
 """, unsafe_allow_html=True)
@@ -105,6 +133,10 @@ if "query_count" not in st.session_state:
 # PDF PROCESSING
 # ---------------------------
 if uploaded_file:
+    pdf_name = uploaded_file.name
+
+    st.markdown(f"📄 **Current Document:** {pdf_name}")
+
     pdf_reader = PdfReader(uploaded_file)
     text = ""
 
@@ -141,14 +173,13 @@ if uploaded_file:
 
         with st.spinner("AI is thinking..."):
 
-            # Try OpenAI if key exists
-            if "OPENAI_API_KEY" in st.secrets and OpenAI:
+            if mode == "Full LLM (OpenAI)" and "OPENAI_API_KEY" in st.secrets and OpenAI:
                 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
                 response = client.chat.completions.create(
                     model="gpt-4o-mini",
                     messages=[
-                        {"role": "system", "content": "Answer based on provided PDF content."},
+                        {"role": "system", "content": f"Answer based on this PDF content:\n{text[:4000]}"},
                         {"role": "user", "content": query}
                     ]
                 )
@@ -156,10 +187,8 @@ if uploaded_file:
                 answer = response.choices[0].message.content
 
             else:
-                # Fallback: Similarity Search
                 vectorizer = TfidfVectorizer()
                 vectors = vectorizer.fit_transform(chunks + [query])
-
                 similarity = cosine_similarity(vectors[-1], vectors[:-1])
                 most_similar_index = np.argmax(similarity)
                 answer = chunks[most_similar_index]

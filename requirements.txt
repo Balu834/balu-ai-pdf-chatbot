@@ -1,8 +1,8 @@
 streamlit
 pypdf2
-langchain
 langchain-community
 langchain-text-splitters
-huggingface-hub
 sentence-transformers
 faiss-cpu
+transformers
+torch

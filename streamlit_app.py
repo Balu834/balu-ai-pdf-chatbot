@@ -6,7 +6,7 @@ from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import HuggingFaceEmbeddings
 
 st.set_page_config(page_title="Chat with PDF", layout="wide")
-st.title("💬 Chat with Your PDF (Stable Version)")
+st.title("💬 Chat with Your PDF (AI Version)")
 
 uploaded_file = st.file_uploader("Upload your PDF", type="pdf")
 
@@ -14,16 +14,20 @@ if uploaded_file:
     pdf_reader = PdfReader(uploaded_file)
     text = ""
 
+    # Extract text from PDF
     for page in pdf_reader.pages:
         content = page.extract_text()
         if content:
             text += content
 
-    # Split text
-    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+    # Split text into chunks
+    text_splitter = CharacterTextSplitter(
+        chunk_size=1000,
+        chunk_overlap=200
+    )
     chunks = text_splitter.split_text(text)
 
-    # Embeddings
+    # Create embeddings
     embeddings = HuggingFaceEmbeddings(
         model_name="sentence-transformers/all-MiniLM-L6-v2"
     )
@@ -31,9 +35,9 @@ if uploaded_file:
     vectorstore = FAISS.from_texts(chunks, embeddings)
     retriever = vectorstore.as_retriever()
 
-    # Load model directly
+    # Load HuggingFace model properly
     qa_pipeline = pipeline(
-        "text2text-generation",
+        task="text2text-generation",
         model="google/flan-t5-base"
     )
 
@@ -44,7 +48,7 @@ if uploaded_file:
         context = "\n".join([doc.page_content for doc in docs])
 
         prompt = f"""
-        Answer the question based on the context below.
+        Answer the question based only on the context below.
 
         Context:
         {context}
@@ -55,7 +59,7 @@ if uploaded_file:
         Answer:
         """
 
-        result = qa_pipeline(prompt, max_length=512)
+        result = qa_pipeline(prompt, max_length=512, truncation=True)
         answer = result[0]["generated_text"]
 
         st.subheader("📖 Answer")

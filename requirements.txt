@@ -1,2 +1,5 @@
 pypdf==6.7.2
 PyPDF2
+streamlit
+langchain
+openai

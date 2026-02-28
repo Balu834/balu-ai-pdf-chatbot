@@ -3,3 +3,4 @@ pypdf2
 scikit-learn
 numpy
 openai
+supabase

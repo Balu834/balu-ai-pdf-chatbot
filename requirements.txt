@@ -1,5 +1,6 @@
-pypdf==6.7.2
-PyPDF2
 streamlit
+PyPDF2
 langchain
-openai
+huggingface_hub
+sentence-transformers
+faiss-cpu

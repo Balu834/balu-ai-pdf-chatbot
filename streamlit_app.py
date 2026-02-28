@@ -28,11 +28,18 @@ st.markdown("""
         color:gray;
         margin-bottom:30px;
     }
-    .answer-box {
-        background-color:#f0f2f6;
-        padding:20px;
+    .user-bubble {
+        background-color:#dbeafe;
+        padding:12px;
         border-radius:12px;
-        font-size:16px;
+        margin-bottom:10px;
+        text-align:right;
+    }
+    .ai-bubble {
+        background-color:#f3f4f6;
+        padding:12px;
+        border-radius:12px;
+        margin-bottom:10px;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -41,7 +48,7 @@ st.markdown("""
 # Header
 # ---------------------------
 st.markdown('<div class="main-title">💬 AI PDF Chat Assistant</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">Upload a PDF and ask questions instantly</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">Upload a PDF and chat instantly</div>', unsafe_allow_html=True)
 
 # ---------------------------
 # Sidebar
@@ -51,6 +58,16 @@ with st.sidebar:
     uploaded_file = st.file_uploader("Upload your PDF", type="pdf")
     st.markdown("---")
     st.info("This AI finds relevant content from your PDF and answers your questions.")
+    
+    if st.button("🗑 Clear Chat"):
+        st.session_state.chat_history = []
+        st.success("Chat cleared!")
+
+# ---------------------------
+# Initialize Chat Memory
+# ---------------------------
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
 
 # ---------------------------
 # Main Logic
@@ -77,11 +94,29 @@ if uploaded_file:
 
         similarity = cosine_similarity(vectors[-1], vectors[:-1])
         most_similar_index = np.argmax(similarity)
-
         answer = chunks[most_similar_index]
 
-        st.markdown("### 📖 Answer")
-        st.markdown(f'<div class="answer-box">{answer}</div>', unsafe_allow_html=True)
+        # Save conversation
+        st.session_state.chat_history.append(("user", query))
+        st.session_state.chat_history.append(("ai", answer))
 
-else:
-    st.info("👈 Upload a PDF from the sidebar to begin.")
+# ---------------------------
+# Display Chat Conversation
+# ---------------------------
+for role, message in st.session_state.chat_history:
+    if role == "user":
+        st.markdown(
+            f"<div class='user-bubble'><b>You:</b> {message}</div>",
+            unsafe_allow_html=True
+        )
+    else:
+        st.markdown(
+            f"<div class='ai-bubble'><b>AI:</b> {message}</div>",
+            unsafe_allow_html=True
+        )
+
+# ---------------------------
+# Default Message
+# ---------------------------
+if not uploaded_file:
+    st.info("👈 Upload a PDF from the sidebar to begin chatting.")

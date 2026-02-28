@@ -9,7 +9,7 @@ import numpy as np
 # ---------------------------
 st.set_page_config(
     page_title="AI PDF Chat",
-    page_icon="📄",
+    page_icon="💬",
     layout="wide"
 )
 
@@ -17,38 +17,47 @@ st.set_page_config(
 # Custom Styling
 # ---------------------------
 st.markdown("""
-    <style>
-    .main-title {
-        font-size:40px;
-        font-weight:700;
-        margin-bottom:10px;
-    }
-    .subtitle {
-        font-size:18px;
-        color:gray;
-        margin-bottom:30px;
-    }
-    .user-bubble {
-        background-color:#dbeafe;
-        padding:12px;
-        border-radius:12px;
-        margin-bottom:10px;
-        text-align:right;
-    }
-    .ai-bubble {
-        background-color:#f3f4f6;
-        padding:12px;
-        border-radius:12px;
-        margin-bottom:10px;
-    }
-    </style>
+<style>
+.chat-container {
+    max-width: 800px;
+    margin: auto;
+}
+.user-bubble {
+    background-color: #dbeafe;
+    padding: 12px 18px;
+    border-radius: 18px;
+    margin-bottom: 10px;
+    text-align: right;
+    width: fit-content;
+    max-width: 70%;
+    margin-left: auto;
+}
+.ai-bubble {
+    background-color: #f3f4f6;
+    padding: 12px 18px;
+    border-radius: 18px;
+    margin-bottom: 10px;
+    width: fit-content;
+    max-width: 70%;
+}
+.header-title {
+    text-align:center;
+    font-size:36px;
+    font-weight:700;
+}
+.sub-text {
+    text-align:center;
+    color:gray;
+    margin-bottom:30px;
+}
+</style>
 """, unsafe_allow_html=True)
 
 # ---------------------------
 # Header
 # ---------------------------
-st.markdown('<div class="main-title">💬 AI PDF Chat Assistant</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">Upload a PDF and chat instantly</div>', unsafe_allow_html=True)
+st.markdown('<div class="header-title">💬 AI PDF Chat Assistant</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-text">Upload a PDF and chat instantly</div>', unsafe_allow_html=True)
 
 # ---------------------------
 # Sidebar
@@ -56,9 +65,8 @@ st.markdown('<div class="subtitle">Upload a PDF and chat instantly</div>', unsaf
 with st.sidebar:
     st.header("📂 Upload Document")
     uploaded_file = st.file_uploader("Upload your PDF", type="pdf")
+
     st.markdown("---")
-    st.info("This AI finds relevant content from your PDF and answers your questions.")
-    
     if st.button("🗑 Clear Chat"):
         st.session_state.chat_history = []
         st.success("Chat cleared!")
@@ -70,7 +78,7 @@ if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
 # ---------------------------
-# Main Logic
+# PDF Processing
 # ---------------------------
 if uploaded_file:
     pdf_reader = PdfReader(uploaded_file)
@@ -84,39 +92,45 @@ if uploaded_file:
     chunk_size = 500
     chunks = [text[i:i+chunk_size] for i in range(0, len(text), chunk_size)]
 
-    st.success(f"✅ PDF processed successfully ({len(chunks)} text sections created)")
+    st.success(f"✅ PDF processed successfully ({len(chunks)} sections created)")
 
-    query = st.text_input("🔎 Ask a question about your PDF")
+    # ---------------------------
+    # Display Chat
+    # ---------------------------
+    st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+
+    for role, message in st.session_state.chat_history:
+        if role == "user":
+            st.markdown(
+                f"<div class='user-bubble'><b>You:</b><br>{message}</div>",
+                unsafe_allow_html=True
+            )
+        else:
+            st.markdown(
+                f"<div class='ai-bubble'><b>AI:</b><br>{message}</div>",
+                unsafe_allow_html=True
+            )
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # ---------------------------
+    # Input at Bottom
+    # ---------------------------
+    query = st.text_input("Type your message...")
 
     if query:
-        vectorizer = TfidfVectorizer()
-        vectors = vectorizer.fit_transform(chunks + [query])
+        with st.spinner("AI is thinking..."):
+            vectorizer = TfidfVectorizer()
+            vectors = vectorizer.fit_transform(chunks + [query])
 
-        similarity = cosine_similarity(vectors[-1], vectors[:-1])
-        most_similar_index = np.argmax(similarity)
-        answer = chunks[most_similar_index]
+            similarity = cosine_similarity(vectors[-1], vectors[:-1])
+            most_similar_index = np.argmax(similarity)
+            answer = chunks[most_similar_index]
 
-        # Save conversation
         st.session_state.chat_history.append(("user", query))
         st.session_state.chat_history.append(("ai", answer))
 
-# ---------------------------
-# Display Chat Conversation
-# ---------------------------
-for role, message in st.session_state.chat_history:
-    if role == "user":
-        st.markdown(
-            f"<div class='user-bubble'><b>You:</b> {message}</div>",
-            unsafe_allow_html=True
-        )
-    else:
-        st.markdown(
-            f"<div class='ai-bubble'><b>AI:</b> {message}</div>",
-            unsafe_allow_html=True
-        )
+        st.rerun()
 
-# ---------------------------
-# Default Message
-# ---------------------------
-if not uploaded_file:
+else:
     st.info("👈 Upload a PDF from the sidebar to begin chatting.")
